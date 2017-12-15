@@ -81,7 +81,8 @@ exports['default'] = {
   createLabel: createLabel,
   getSelectedArtboardsAndSymbols: getSelectedArtboardsAndSymbols,
   flatten: flatten,
-  getDocumentColors: getDocumentColors
+  getDocumentColors: getDocumentColors,
+  createDivider: createDivider
 
   /**
    * @name clearSelection
@@ -172,6 +173,20 @@ function flatten(list) {
  */
 function getDocumentColors(context) {
   return context.document.documentData().assets().colors();
+}
+
+/**
+ * @name createDivider
+ * @param frame
+ * @return {*}
+ */
+function createDivider(frame) {
+  var divider = NSView.alloc().initWithFrame(frame);
+
+  divider.setWantsLayer(1);
+  divider.layer().setBackgroundColor(CGColorCreateGenericRGB(204 / 255, 204 / 255, 204 / 255, 1.0));
+
+  return divider;
 }
 
 /***/ }),
@@ -310,10 +325,6 @@ function initLibsSelectList(libs, colorMenu) {
   }
 
   var colorLibsMenu = NSMenu.alloc().init();
-  var empty = NSMenuItem.alloc().init();
-  empty.title = "";
-  addListener(empty);
-  colorLibsMenu.addItem(empty);
   libs.forEach(function (lib) {
     var item = NSMenuItem.alloc().init();
     item.title = lib.name();
@@ -511,273 +522,6 @@ function getMaskProperties(artboard) {
 
 /***/ }),
 /* 4 */
-/***/ (function(module, exports, __webpack_require__) {
-
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-
-var _utils = __webpack_require__(0);
-
-var _utils2 = _interopRequireDefault(_utils);
-
-var _logger = __webpack_require__(1);
-
-var _logger2 = _interopRequireDefault(_logger);
-
-var _mask = __webpack_require__(3);
-
-var _mask2 = _interopRequireDefault(_mask);
-
-var _svg = __webpack_require__(5);
-
-var _svg2 = _interopRequireDefault(_svg);
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
-
-// @import './utils/utils.js'
-// @import './providers/mask.cocoascript'
-// @import './providers/svg.cocoascript'
-
-exports['default'] = {
-  createArtboard: createArtboard,
-  initArtboardsParams: initArtboardsParams,
-  initImportIcons: initImportIcons,
-  getPaddingAndSize: getPaddingAndSize
-};
-
-
-var artboardParams = {
-  position: {
-    x: 0,
-    y: 0
-  },
-  size: {
-    height: 0,
-    width: 0
-  }
-
-  /**
-   * @name createArtboard
-   * @description set position and size and create artboard
-   * @param context {Object} :
-   * @param index {Number}
-   * @param icon {Object} : NSurl
-   * @returns {Object} : MSArtboardGroup
-   */
-};function createArtboard(context, index, icon) {
-  if (index % 10 === 0) {
-    artboardParams.position.y += artboardParams.size.width * 2;
-    artboardParams.position.x = artboardParams.size.width;
-  } else {
-    artboardParams.position.x += 2 * artboardParams.size.width;
-  }
-  var newArtboard = MSArtboardGroup['new']();
-  newArtboard.setName(_utils2['default'].getIconNameByNSUrl(icon));
-  var newArtboardFrame = newArtboard.frame();
-  newArtboardFrame.setWidth(artboardParams.size.width);
-  newArtboardFrame.setHeight(artboardParams.size.height);
-  newArtboardFrame.setX(artboardParams.position.x);
-  newArtboardFrame.setY(artboardParams.position.y);
-  context.document.currentPage().addLayers([newArtboard]);
-  return newArtboard;
-}
-
-/**
- * @name initArtboardsParams
- * @description initialisation for new artboard position
- * @param context
- */
-function initArtboardsParams(context) {
-  var currentPage = context.api().selectedDocument.selectedPage;
-  if (currentPage.sketchObject.children().length === 1) {
-    artboardParams.position.x = artboardParams.position.y = artboardParams.size.width * 2;
-  } else {
-    var Y = [];
-    currentPage.iterateWithFilter('isArtboard', function (layer) {
-      Y.push(layer.sketchObject.origin().y);
-    });
-    currentPage.sketchObject.symbols().forEach(function (symbols) {
-      Y.push(symbols.origin().y);
-    });
-    artboardParams.position.x = artboardParams.size.width * 2;
-    artboardParams.position.y = Math.max.apply(Math, Y);
-  }
-}
-
-/**
- * @name initImportIcons
- * @description main function to import multiple icons and mask on new artboard
- * @param context {Object}
- * @param params: {Object}
- */
-function initImportIcons(context, params) {
-  _utils2['default'].clearSelection(context);
-  artboardParams.size.height = artboardParams.size.width = params.artboardSize;
-  initArtboardsParams(context);
-  var newArtboard = void 0;
-  params.listIcon.forEach(function (icon, index) {
-    // try {
-    newArtboard = createArtboard(context, index, icon);
-    _svg2['default'].addSVG(context, newArtboard, params.iconPadding, icon);
-    if (params.withMask && params.color && params.colorLib) _mask2['default'].addMask(context, newArtboard, params);
-    if (params.convertSymbol) MSSymbolMaster.convertArtboardToSymbol(newArtboard);
-    // } catch (e) {
-    //   logger.log("Sorry, Error !!!")
-    //   logger.log(e)
-    //   logger.log(icon)
-    // }
-  });
-  _utils2['default'].clearSelection(context);
-}
-
-/**
- * @name getPaddingAndSize
- * @description get padding and size by artboard
- * @param artboard {Object} : MSArtboardGroup
- * @returns {{iconPadding: Number, artboardSize: Number}}
- */
-function getPaddingAndSize(artboard) {
-  return {
-    iconPadding: parseInt(artboard.layers()[0].rect().origin.x),
-    artboardSize: parseInt(artboard.rect().size.width)
-  };
-}
-
-/***/ }),
-/* 5 */
-/***/ (function(module, exports, __webpack_require__) {
-
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-
-var _mask = __webpack_require__(3);
-
-var _mask2 = _interopRequireDefault(_mask);
-
-var _artboard = __webpack_require__(4);
-
-var _artboard2 = _interopRequireDefault(_artboard);
-
-var _utils = __webpack_require__(0);
-
-var _utils2 = _interopRequireDefault(_utils);
-
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
-
-exports['default'] = {
-  initUpdateIconsSelectedArtboards: initUpdateIconsSelectedArtboards,
-  addSVG: addSVG,
-  resizeSVG: resizeSVG,
-  removeTxt: removeTxt
-
-  /**
-   * @name initUpdateIconsSelectedArtboards
-   * @description main function to update multiple icons on selected artboard
-   * @param context
-   * @param listIcon {Array} : NSUrl
-   * @param artboards {Array} : MSArtboardGroup && MSSymbolMaster
-   */
-};
-function initUpdateIconsSelectedArtboards(context, artboards, listIcon) {
-
-  artboards.forEach(function (artboard, index) {
-    var params = Object.assign(_artboard2['default'].getPaddingAndSize(artboard.object), _mask2['default'].getMaskProperties(artboard.object), { iconPath: listIcon[index] });
-    artboard.object.removeAllLayers();
-    addSVG(context, artboard.object, params.iconPadding, params.iconPath);
-    if (params.color && params.colorLib) _mask2['default'].addMask(context, artboard.object, params);
-    artboard.object.setName(_utils2['default'].getIconNameByNSUrl(params.iconPath));
-  });
-}
-
-/**
- * @name addSVG
- * @description  add svg on specific artboard
- * @param context {Object}
- * @param artboard {Object} : MSArtboardGroup
- * @param iconPadding {Number}
- * @param iconPath {Object} : NSUrl
- */
-function addSVG(context, artboard, iconPadding, iconPath) {
-  _utils2['default'].clearSelection(context);
-  var svgImporter = MSSVGImporter.svgImporter();
-  var svgURL = NSURL.fileURLWithPath(iconPath.path());
-  svgImporter.prepareToImportFromURL(svgURL);
-  var svgLayer = svgImporter.importAsLayer();
-  removeTxt(svgLayer);
-  artboard.addLayer(svgLayer);
-  var svgLayerFrame = svgLayer.frame();
-  resizeSVG(svgLayerFrame, artboard, iconPadding);
-}
-
-/**
- * @name resizeSVG
- * @description resize layer by artboard
- * @param svgLayerFrame {Object} : MSShape*
- * @param artboard {Object} : MSArtboardGroup
- * @param iconPadding {Number}
- */
-function resizeSVG(svgLayerFrame, artboard, iconPadding) {
-
-  var currentArtboardRect = artboard.rect();
-  var currentArtboardSize = {
-    width: parseInt(currentArtboardRect.size.width),
-    height: parseInt(currentArtboardRect.size.height)
-  };
-  var width = svgLayerFrame.width();
-  var height = svgLayerFrame.height();
-  var newPadding = void 0,
-      newHeight = void 0,
-      newWidth = void 0;
-
-  if (width === height) {
-    svgLayerFrame.setWidth(currentArtboardSize.width - 2 * iconPadding);
-    svgLayerFrame.setHeight(currentArtboardSize.height - 2 * iconPadding);
-    svgLayerFrame.setX(iconPadding);
-    svgLayerFrame.setY(iconPadding);
-  } else if (width >= height) {
-    svgLayerFrame.setWidth(currentArtboardSize.width - 2 * iconPadding);
-    svgLayerFrame.setX(iconPadding);
-    newHeight = height * (currentArtboardSize.height - 2 * iconPadding) / width;
-    newHeight = newHeight < 1 ? 1 : newHeight;
-    newPadding = (currentArtboardSize.width - 2 * iconPadding) / 2 + iconPadding - newHeight / 2;
-
-    svgLayerFrame.setHeight(newHeight);
-    svgLayerFrame.setY(newPadding);
-  } else {
-    svgLayerFrame.setHeight(currentArtboardSize.height - 2 * iconPadding);
-    svgLayerFrame.setY(iconPadding);
-
-    newWidth = width * (currentArtboardSize.width - 2 * iconPadding) / height;
-    newWidth = newWidth < 1 ? 1 : newWidth;
-    newPadding = (currentArtboardSize.height - 2 * iconPadding) / 2 + iconPadding - newWidth / 2;
-
-    svgLayerFrame.setWidth(newWidth);
-    svgLayerFrame.setX(newPadding);
-  }
-}
-
-/**
- * @name removeTxt
- * @description remove text form svg
- * @param svgLayer {Object}
- */
-function removeTxt(svgLayer) {
-
-  var scope = svgLayer.children(),
-      predicate = NSPredicate.predicateWithFormat("(className == %@)", "MSTextLayer"),
-      layers = scope.filteredArrayUsingPredicate(predicate);
-
-  var loop = layers.objectEnumerator();
-  var layer = void 0;
-  while (layer = loop.nextObject()) {
-    layer.removeFromParent();
-  }
-}
-
-/***/ }),
-/* 6 */
 /***/ (function(module, exports, __webpack_require__) {
 
 Object.defineProperty(exports, "__esModule", {
@@ -1057,6 +801,273 @@ function newErrorModal(message, informativeText) {
 }
 
 /***/ }),
+/* 5 */
+/***/ (function(module, exports, __webpack_require__) {
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+
+var _utils = __webpack_require__(0);
+
+var _utils2 = _interopRequireDefault(_utils);
+
+var _logger = __webpack_require__(1);
+
+var _logger2 = _interopRequireDefault(_logger);
+
+var _mask = __webpack_require__(3);
+
+var _mask2 = _interopRequireDefault(_mask);
+
+var _svg = __webpack_require__(6);
+
+var _svg2 = _interopRequireDefault(_svg);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
+
+// @import './utils/utils.js'
+// @import './providers/mask.cocoascript'
+// @import './providers/svg.cocoascript'
+
+exports['default'] = {
+  createArtboard: createArtboard,
+  initArtboardsParams: initArtboardsParams,
+  initImportIcons: initImportIcons,
+  getPaddingAndSize: getPaddingAndSize
+};
+
+
+var artboardParams = {
+  position: {
+    x: 0,
+    y: 0
+  },
+  size: {
+    height: 0,
+    width: 0
+  }
+
+  /**
+   * @name createArtboard
+   * @description set position and size and create artboard
+   * @param context {Object} :
+   * @param index {Number}
+   * @param icon {Object} : NSurl
+   * @returns {Object} : MSArtboardGroup
+   */
+};function createArtboard(context, index, icon) {
+  if (index % 10 === 0) {
+    artboardParams.position.y += artboardParams.size.width * 2;
+    artboardParams.position.x = artboardParams.size.width;
+  } else {
+    artboardParams.position.x += 2 * artboardParams.size.width;
+  }
+  var newArtboard = MSArtboardGroup['new']();
+  newArtboard.setName(_utils2['default'].getIconNameByNSUrl(icon));
+  var newArtboardFrame = newArtboard.frame();
+  newArtboardFrame.setWidth(artboardParams.size.width);
+  newArtboardFrame.setHeight(artboardParams.size.height);
+  newArtboardFrame.setX(artboardParams.position.x);
+  newArtboardFrame.setY(artboardParams.position.y);
+  context.document.currentPage().addLayers([newArtboard]);
+  return newArtboard;
+}
+
+/**
+ * @name initArtboardsParams
+ * @description initialisation for new artboard position
+ * @param context
+ */
+function initArtboardsParams(context) {
+  var currentPage = context.api().selectedDocument.selectedPage;
+  if (currentPage.sketchObject.children().length === 1) {
+    artboardParams.position.x = artboardParams.position.y = artboardParams.size.width * 2;
+  } else {
+    var Y = [];
+    currentPage.iterateWithFilter('isArtboard', function (layer) {
+      Y.push(layer.sketchObject.origin().y);
+    });
+    currentPage.sketchObject.symbols().forEach(function (symbols) {
+      Y.push(symbols.origin().y);
+    });
+    artboardParams.position.x = artboardParams.size.width * 2;
+    artboardParams.position.y = Math.max.apply(Math, Y);
+  }
+}
+
+/**
+ * @name initImportIcons
+ * @description main function to import multiple icons and mask on new artboard
+ * @param context {Object}
+ * @param params: {Object}
+ */
+function initImportIcons(context, params) {
+  _utils2['default'].clearSelection(context);
+  artboardParams.size.height = artboardParams.size.width = params.artboardSize;
+  initArtboardsParams(context);
+  var newArtboard = void 0;
+  params.listIcon.forEach(function (icon, index) {
+    // try {
+    newArtboard = createArtboard(context, index, icon);
+    _svg2['default'].addSVG(context, newArtboard, params.iconPadding, icon);
+    if (params.withMask && params.color && params.colorLib) _mask2['default'].addMask(context, newArtboard, params);
+    if (params.convertSymbol) MSSymbolMaster.convertArtboardToSymbol(newArtboard);
+    // } catch (e) {
+    //   logger.log("Sorry, Error !!!")
+    //   logger.log(e)
+    //   logger.log(icon)
+    // }
+  });
+  _utils2['default'].clearSelection(context);
+}
+
+/**
+ * @name getPaddingAndSize
+ * @description get padding and size by artboard
+ * @param artboard {Object} : MSArtboardGroup
+ * @returns {{iconPadding: Number, artboardSize: Number}}
+ */
+function getPaddingAndSize(artboard) {
+  return {
+    iconPadding: parseInt(artboard.layers()[0].rect().origin.x),
+    artboardSize: parseInt(artboard.rect().size.width)
+  };
+}
+
+/***/ }),
+/* 6 */
+/***/ (function(module, exports, __webpack_require__) {
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+
+var _mask = __webpack_require__(3);
+
+var _mask2 = _interopRequireDefault(_mask);
+
+var _artboard = __webpack_require__(5);
+
+var _artboard2 = _interopRequireDefault(_artboard);
+
+var _utils = __webpack_require__(0);
+
+var _utils2 = _interopRequireDefault(_utils);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
+
+exports['default'] = {
+  initUpdateIconsSelectedArtboards: initUpdateIconsSelectedArtboards,
+  addSVG: addSVG,
+  resizeSVG: resizeSVG,
+  removeTxt: removeTxt
+
+  /**
+   * @name initUpdateIconsSelectedArtboards
+   * @description main function to update multiple icons on selected artboard
+   * @param context
+   * @param listIcon {Array} : NSUrl
+   * @param artboards {Array} : MSArtboardGroup && MSSymbolMaster
+   */
+};
+function initUpdateIconsSelectedArtboards(context, artboards, listIcon) {
+
+  artboards.forEach(function (artboard, index) {
+    var params = Object.assign(_artboard2['default'].getPaddingAndSize(artboard.object), _mask2['default'].getMaskProperties(artboard.object), { iconPath: listIcon[index] });
+    artboard.object.removeAllLayers();
+    addSVG(context, artboard.object, params.iconPadding, params.iconPath);
+    if (params.color && params.colorLib) _mask2['default'].addMask(context, artboard.object, params);
+    artboard.object.setName(_utils2['default'].getIconNameByNSUrl(params.iconPath));
+  });
+}
+
+/**
+ * @name addSVG
+ * @description  add svg on specific artboard
+ * @param context {Object}
+ * @param artboard {Object} : MSArtboardGroup
+ * @param iconPadding {Number}
+ * @param iconPath {Object} : NSUrl
+ */
+function addSVG(context, artboard, iconPadding, iconPath) {
+  _utils2['default'].clearSelection(context);
+  var svgImporter = MSSVGImporter.svgImporter();
+  var svgURL = NSURL.fileURLWithPath(iconPath.path());
+  svgImporter.prepareToImportFromURL(svgURL);
+  var svgLayer = svgImporter.importAsLayer();
+  removeTxt(svgLayer);
+  artboard.addLayer(svgLayer);
+  var svgLayerFrame = svgLayer.frame();
+  resizeSVG(svgLayerFrame, artboard, iconPadding);
+}
+
+/**
+ * @name resizeSVG
+ * @description resize layer by artboard
+ * @param svgLayerFrame {Object} : MSShape*
+ * @param artboard {Object} : MSArtboardGroup
+ * @param iconPadding {Number}
+ */
+function resizeSVG(svgLayerFrame, artboard, iconPadding) {
+
+  var currentArtboardRect = artboard.rect();
+  var currentArtboardSize = {
+    width: parseInt(currentArtboardRect.size.width),
+    height: parseInt(currentArtboardRect.size.height)
+  };
+  var width = svgLayerFrame.width();
+  var height = svgLayerFrame.height();
+  var newPadding = void 0,
+      newHeight = void 0,
+      newWidth = void 0;
+
+  if (width === height) {
+    svgLayerFrame.setWidth(currentArtboardSize.width - 2 * iconPadding);
+    svgLayerFrame.setHeight(currentArtboardSize.height - 2 * iconPadding);
+    svgLayerFrame.setX(iconPadding);
+    svgLayerFrame.setY(iconPadding);
+  } else if (width >= height) {
+    svgLayerFrame.setWidth(currentArtboardSize.width - 2 * iconPadding);
+    svgLayerFrame.setX(iconPadding);
+    newHeight = height * (currentArtboardSize.height - 2 * iconPadding) / width;
+    newHeight = newHeight < 1 ? 1 : newHeight;
+    newPadding = (currentArtboardSize.width - 2 * iconPadding) / 2 + iconPadding - newHeight / 2;
+
+    svgLayerFrame.setHeight(newHeight);
+    svgLayerFrame.setY(newPadding);
+  } else {
+    svgLayerFrame.setHeight(currentArtboardSize.height - 2 * iconPadding);
+    svgLayerFrame.setY(iconPadding);
+
+    newWidth = width * (currentArtboardSize.width - 2 * iconPadding) / height;
+    newWidth = newWidth < 1 ? 1 : newWidth;
+    newPadding = (currentArtboardSize.height - 2 * iconPadding) / 2 + iconPadding - newWidth / 2;
+
+    svgLayerFrame.setWidth(newWidth);
+    svgLayerFrame.setX(newPadding);
+  }
+}
+
+/**
+ * @name removeTxt
+ * @description remove text form svg
+ * @param svgLayer {Object}
+ */
+function removeTxt(svgLayer) {
+
+  var scope = svgLayer.children(),
+      predicate = NSPredicate.predicateWithFormat("(className == %@)", "MSTextLayer"),
+      layers = scope.filteredArrayUsingPredicate(predicate);
+
+  var loop = layers.objectEnumerator();
+  var layer = void 0;
+  while (layer = loop.nextObject()) {
+    layer.removeFromParent();
+  }
+}
+
+/***/ }),
 /* 7 */
 /***/ (function(module, exports, __webpack_require__) {
 
@@ -1066,6 +1077,7 @@ Object.defineProperty(exports, "__esModule", {
 exports.importIcons = importIcons;
 exports.updateIconsOnSelectedArtboards = updateIconsOnSelectedArtboards;
 exports.addMaskOnSelectedArtboards = addMaskOnSelectedArtboards;
+exports.test = test;
 
 var _logger = __webpack_require__(1);
 
@@ -1079,7 +1091,7 @@ var _libraries = __webpack_require__(2);
 
 var _libraries2 = _interopRequireDefault(_libraries);
 
-var _artboard = __webpack_require__(4);
+var _artboard = __webpack_require__(5);
 
 var _artboard2 = _interopRequireDefault(_artboard);
 
@@ -1087,7 +1099,7 @@ var _mask = __webpack_require__(3);
 
 var _mask2 = _interopRequireDefault(_mask);
 
-var _modals = __webpack_require__(6);
+var _modals = __webpack_require__(4);
 
 var _modals2 = _interopRequireDefault(_modals);
 
@@ -1095,13 +1107,17 @@ var _files = __webpack_require__(8);
 
 var _files2 = _interopRequireDefault(_files);
 
-var _svg = __webpack_require__(5);
+var _svg = __webpack_require__(6);
 
 var _svg2 = _interopRequireDefault(_svg);
 
 var _importIcons = __webpack_require__(9);
 
 var _importIcons2 = _interopRequireDefault(_importIcons);
+
+var _import = __webpack_require__(10);
+
+var _import2 = _interopRequireDefault(_import);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
@@ -1144,6 +1160,10 @@ function addMaskOnSelectedArtboards(context) {
   var params = _importIcons2['default'].getAddMaskOnSelectedArtboardsParams(context);
   if (params.button !== 1000) return;
   _mask2['default'].initAddMaskOnSelectedArtboards(context, params, selectedArtboardsAndSymbols);
+}
+
+function test(context) {
+  (0, _import2['default'])();
 }
 
 /***/ }),
@@ -1216,7 +1236,7 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 
-var _modals = __webpack_require__(6);
+var _modals = __webpack_require__(4);
 
 var _modals2 = _interopRequireDefault(_modals);
 
@@ -1289,6 +1309,122 @@ function getAddMaskOnSelectedArtboardsParams(context) {
   return Object.assign(_modals2['default'].getMainButtonParam(_modals2['default'].runModal(modal)), _modals2['default'].getParams(allFields));
 }
 
+/***/ }),
+/* 10 */
+/***/ (function(module, exports, __webpack_require__) {
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports['default'] = make;
+
+var _modals = __webpack_require__(4);
+
+var _modals2 = _interopRequireDefault(_modals);
+
+var _utils = __webpack_require__(0);
+
+var _utils2 = _interopRequireDefault(_utils);
+
+var _libraries = __webpack_require__(2);
+
+var _libraries2 = _interopRequireDefault(_libraries);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
+
+function make() {
+
+  var modal = COSAlertWindow['new']();
+
+  var modalParams = {
+    messageText: 'Configure your import',
+    informativeText: 'Your icons will be arranged in artboards. Set size and padding of your artboards.',
+    height: 230,
+    width: 300
+  };
+
+  var lineHeight = 35;
+
+  var view = NSView.alloc().initWithFrame(NSMakeRect(0, 0, modalParams.width, modalParams.height));
+
+  modal.addAccessoryView(view);
+  modal.setMessageText(modalParams.messageText);
+  modal.setInformativeText(modalParams.informativeText);
+  modal.addButtonWithTitle('Continue');
+  modal.addButtonWithTitle('Cancel');
+
+  var textBoxLabel = _utils2['default'].createLabel('Artboard size', 0, modalParams.height - lineHeight, 150, 20);
+  view.addSubview(textBoxLabel);
+  var textBox = NSTextField.alloc().initWithFrame(NSMakeRect(150, modalParams.height - lineHeight, 50, 20));
+  textBox.setStringValue('24');
+  view.addSubview(textBox);
+  var textBoxUnit = _utils2['default'].createLabel('px', 205, modalParams.height - lineHeight, 50, 20);
+  view.addSubview(textBoxUnit);
+
+  var paddingBoxLabel = _utils2['default'].createLabel('Artboard Padding', 0, modalParams.height - lineHeight * 2, 150, 20);
+  view.addSubview(paddingBoxLabel);
+  var paddingBox = NSTextField.alloc().initWithFrame(NSMakeRect(150, modalParams.height - lineHeight * 2, 50, 20));
+  textBox.setStringValue('3');
+  view.addSubview(paddingBox);
+  var paddingBoxUnit = _utils2['default'].createLabel('px', 205, modalParams.height - lineHeight * 2, 50, 20);
+  view.addSubview(paddingBoxUnit);
+
+  var groupDivider = _utils2['default'].createDivider(NSMakeRect(0, modalParams.height - lineHeight * 3 + 20, modalParams.width, 1));
+  view.addSubview(groupDivider);
+
+  var symbolCheckBox = NSButton.alloc().initWithFrame(NSMakeRect(150, modalParams.height - lineHeight * 3, 200, 14));
+  symbolCheckBox.setButtonType(NSSwitchButton);
+  symbolCheckBox.setState(true);
+  symbolCheckBox.setFont(NSFont.systemFontOfSize_(13));
+  symbolCheckBox.setTitle('Convert to symbol');
+  view.addSubview(symbolCheckBox);
+
+  groupDivider = _utils2['default'].createDivider(NSMakeRect(0, modalParams.height - lineHeight * 4 + 20, modalParams.width, 1));
+  view.addSubview(groupDivider);
+
+  var maskCheckBox = NSButton.alloc().initWithFrame(NSMakeRect(150, modalParams.height - lineHeight * 4, 200, 14));
+  maskCheckBox.setButtonType(NSSwitchButton);
+  maskCheckBox.setState(false);
+  maskCheckBox.setFont(NSFont.systemFontOfSize_(13));
+  maskCheckBox.setTitle('Add color mask');
+  view.addSubview(maskCheckBox);
+
+  var colorLibsLabel = _utils2['default'].createLabel('Colors Library', 0, modalParams.height - lineHeight * 5, 150, 20);
+  view.addSubview(colorLibsLabel);
+  var colorLibsMenu = NSPopUpButton.alloc().initWithFrame(NSMakeRect(150, modalParams.height - lineHeight * 5, 130, 20));
+  colorLibsMenu.setEnabled(false);
+
+  var colorMenuLabel = _utils2['default'].createLabel('Color', 0, modalParams.height - lineHeight * 6, 150, 20);
+  view.addSubview(colorMenuLabel);
+  var colorMenu = NSPopUpButton.alloc().initWithFrame(NSMakeRect(150, modalParams.height - lineHeight * 6, 130, 20));
+  colorMenu.setEnabled(false);
+  colorLibsMenu.menu = _libraries2['default'].initLibsSelectList(_libraries2['default'].getLibs(), colorMenu);
+
+  view.addSubview(colorLibsMenu);
+  view.addSubview(colorMenu);
+
+  maskCheckBox.setCOSJSTargetFunction(function (mask) {
+    if (mask.state()) {
+      colorLibsMenu.setEnabled(true);
+      if (colorMenu.selectedItem()) colorMenu.setEnabled(true);
+    } else {
+      colorLibsMenu.setEnabled(false);
+      colorMenu.setEnabled(false);
+    }
+  });
+
+  // const paddingBoxLabel = utils.createLabel('Artboard Padding', 0, modalParams.height - 60, 150, 20)
+  // view.addSubview(paddingBoxLabel)
+  // const paddingBox = NSTextField.alloc().initWithFrame(NSMakeRect(150, modalParams.height - 60, 50, 20));
+  // textBox.setStringValue('3');
+  // view.addSubview(paddingBox)
+  // const paddingBoxUnit = utils.createLabel('px', 205, modalParams.height - 60, 50, 20)
+  // view.addSubview(paddingBoxUnit)
+
+
+  modal.runModal();
+}
+
 /***/ })
 /******/ ]);
   if (key === 'default' && typeof exports === 'function') {
@@ -1300,4 +1436,5 @@ function getAddMaskOnSelectedArtboardsParams(context) {
 that['importIcons'] = __skpm_run.bind(this, 'importIcons');
 that['onRun'] = __skpm_run.bind(this, 'default');
 that['updateIconsOnSelectedArtboards'] = __skpm_run.bind(this, 'updateIconsOnSelectedArtboards');
-that['addMaskOnSelectedArtboards'] = __skpm_run.bind(this, 'addMaskOnSelectedArtboards')
+that['addMaskOnSelectedArtboards'] = __skpm_run.bind(this, 'addMaskOnSelectedArtboards');
+that['test'] = __skpm_run.bind(this, 'test')

@@ -34,6 +34,14 @@
       "identifier": "mask.selected.artboard",
       "icon": "icons/icon-square-1.jpg",
       "description" : "Apply mask on selecteds artboard"
+    },
+    {
+      "script": "./commands.js",
+      "handler": "test",
+      "name": "test modal",
+      "shortcut": "command shift i",
+      "identifier": "test",
+      "description" : "Apply mask on selecteds artboard"
     }
   ],
   "menu" : {
@@ -42,7 +50,9 @@
       "import",
       "update.selected.artboard",
       "-",
-      "mask.selected.artboard"
+      "mask.selected.artboard",
+      "-",
+      "test"
     ]
   }
 }

@@ -84,10 +84,6 @@ function initLibsSelectList(libs, colorMenu) {
   }
 
   const colorLibsMenu = NSMenu.alloc().init()
-  const empty = NSMenuItem.alloc().init()
-  empty.title = ""
-  addListener(empty)
-  colorLibsMenu.addItem(empty)
   libs.forEach(function(lib){
     let item = NSMenuItem.alloc().init()
     item.title = lib.name()

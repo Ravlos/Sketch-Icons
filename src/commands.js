@@ -8,6 +8,7 @@ import modals from './utils/modals';
 import files from './providers/files';
 import svg from './providers/svg';
 import importIconsModal from './modals/importIcons';
+import importIconsModalTest from './modals/import.modal';
 
 
 /**
@@ -49,4 +50,9 @@ export function addMaskOnSelectedArtboards(context) {
     const params = importIconsModal.getAddMaskOnSelectedArtboardsParams(context)
     if (params.button !== 1000) return
     maskProvider.initAddMaskOnSelectedArtboards(context, params, selectedArtboardsAndSymbols)
+}
+
+
+export function test(context){
+  importIconsModalTest()
 }
