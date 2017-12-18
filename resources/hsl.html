@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>HSL ColorPicker</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+<div class="preview"><div id="color"></div></div>
+<div class="solider-container">
+    <div class="solider">
+        <div id="solider-h"></div>
+        <input type="range" id="color-h" name="h" min="0" max="360" step="1" value="0">
+    </div>
+    <div class="solider">
+        <div id="solider-s"></div>
+        <input type="range" id="color-s" name="s" min="0" max="100" step="1" value="100">
+    </div>
+    <div class="solider">
+        <div id="solider-l"></div>
+        <input type="range" id="color-l" name="l" min="0" max="100" step="1" value="50">
+    </div>
+    <div class="solider">
+        <div id="solider-a"></div>
+        <input type="range" id="color-a" name="a" min="0" max="100" step="1" value="100">
+    </div>
+</div>
+<div class="clearfix values">
+    <div class="value value-hex">
+        <input type="text" id="text-hex" value="000000" maxlength="7">
+        <label for="color-hex">HEX</label>
+    </div>
+    <div class="value value-h">
+        <input type="number" id="text-h" value="100" maxlength="3">
+        <label for="color-hex">H</label>
+    </div>
+    <div class="value value-s">
+        <input type="number" id="text-s" value="50" maxlength="3">
+        <label for="color-hex">S</label>
+    </div>
+    <div class="value value-l">
+        <input type="number" id="text-l" value="100" maxlength="3">
+        <label for="color-hex">L</label>
+    </div>
+    <div class="value value-a">
+        <input type="number" id="text-a" value="100" maxlength="3">
+        <label for="color-hex">A</label>
+    </div>
+</div>
+<div class="clearfix bottomActions">
+    <button id="addColorToDocumentColors" title="Add to Document Colors">+</button>
+    <span id="copyColorAs">
+        Copy Color As
+        <button id="copyColorAsHEX">HEX</button>
+        <button id="copyColorAsRGBA">RGBA</button>
+        <button id="copyColorAsHSLA">HSLA</button>
+    </span>
+</div>
+</div>
+
+<script>
+
+var color = {
+    "hex" : "FF0000",
+    "r" : 255,
+    "g" : 0,
+    "b" : 0,
+    "a" : 100,
+    "hsl" : [0, 100, 50],
+    "hsb" : [0, 100, 100]
+}
+
+var addColorToDocumentColors = document.getElementById("addColorToDocumentColors"),
+    copyColorAsHEX = document.getElementById("copyColorAsHEX"),
+    copyColorAsRGBA = document.getElementById("copyColorAsRGBA"),
+    copyColorAsHSLA = document.getElementById("copyColorAsHSLA"),
+    preview = document.getElementById("color"),
+    soliderH = document.getElementById("color-h"),
+    soliderS = document.getElementById("color-s"),
+    soliderL = document.getElementById("color-l"),
+    soliderA = document.getElementById("color-a"),
+    textHex = document.getElementById("text-hex"),
+    textH = document.getElementById("text-h"),
+    textS = document.getElementById("text-s"),
+    textL = document.getElementById("text-l"),
+    textA = document.getElementById("text-a"),
+    soliderTrackH = document.getElementById("solider-h"),
+    soliderTrackS = document.getElementById("solider-s"),
+    soliderTrackL = document.getElementById("solider-l"),
+    soliderTrackA = document.getElementById("solider-a");
+
+soliderTrackH.style.background = solidBackgroundH();
+
+addColorToDocumentColors.onclick = function() {
+    window.location.hash = color.r + "-" + color.g + "-" + color.b + "-" + color.a + "-addToDocumentColors-" + new Date().getTime();
+    return false;
+}
+
+copyColorAsHEX.onclick = function() {
+    window.location.hash = color.r + "-" + color.g + "-" + color.b + "-" + color.a + "-copyColorAsHEX-" + new Date().getTime();
+    return false;
+}
+
+copyColorAsRGBA.onclick = function() {
+    window.location.hash = color.r + "-" + color.g + "-" + color.b + "-" + color.a + "-copyColorAsRGBA-" + new Date().getTime();
+    return false;
+}
+
+copyColorAsHSLA.onclick = function() {
+    window.location.hash = color.r + "-" + color.g + "-" + color.b + "-" + color.a + "-copyColorAsHSLA-" + new Date().getTime();
+    return false;
+}
+
+soliderH.oninput = function() {
+    updataInterface();
+}
+soliderS.oninput = function() {
+    updataInterface();
+}
+soliderL.oninput = function() {
+    updataInterface();
+}
+soliderA.oninput = function() {
+    updataInterface();
+}
+
+textHex.oninput = function() {
+    if (/[^a-fA-F0-9]/.test(this.value)) {
+        this.value = this.value.replace(/[^a-fA-F0-9]/g, "");
+    }
+    if (/[a-fA-F0-9]{6}/.test(this.value)) {
+        if (this.value.length > 6) {
+            this.value = this.value.substr(0, 6);
+        }
+    }
+}
+textHex.onchange = function() {
+    var hsl = HEXtoHSL(this.value);
+    soliderH.value = hsl[0];
+    soliderS.value = hsl[1];
+    soliderL.value = hsl[2];
+    updataInterface();
+}
+
+textH.oninput = function() {
+    checkNumber(this, 360);
+}
+textH.onchange = function() {
+    soliderH.value = this.value;
+    updataInterface();
+}
+
+textS.oninput = function() {
+    checkNumber(this, 100);
+}
+textS.onchange = function() {
+    soliderS.value = this.value;
+    updataInterface();
+}
+
+textL.oninput = function() {
+    checkNumber(this, 100);
+}
+textL.onchange = function() {
+    soliderL.value = this.value;
+    updataInterface();
+}
+
+textA.oninput = function() {
+    checkNumber(this, 100);
+}
+textA.onchange = function() {
+    soliderA.value = this.value;
+    updataInterface();
+}
+
+window.onload = function() {
+    updataInterface();
+}
+
+window.onfocus = function() {
+    window.location.hash = "windowOnFocus";
+}
+
+// Disable right-click menu
+document.oncontextmenu = function() {
+    window.event.returnValue = false;
+}
+
+function getCurrentColor() {
+    return color;
+}
+
+function solidBackgroundH() {
+    var css = "-webkit-linear-gradient(0";
+    for(var i = 0; i <= 360; i += 10) {
+        css = css + "," + "hsl(" + i + ",100%,50%)";
+    }
+        css += ")";
+    return css;
+}
+
+function solidBackgroundS(h, l) {
+    var css = "-webkit-linear-gradient(0";
+    for(var i = 0; i <= 100; i += 20) {
+        css = css + "," + "hsl(" + h + "," + i + "%," + l + "%)";
+    }
+        css += ")";
+    return css;
+}
+
+function solidBackgroundL(h, s) {
+    var css = "-webkit-linear-gradient(0";
+    for(var i = 0; i <= 100; i += 20) {
+        css = css + "," + "hsl(" + h + "," + s + "%," + i + "%)";
+    }
+        css += ")";
+    return css;
+}
+
+function solidBackgroundA(h, s, l) {
+    var css = "-webkit-linear-gradient(0";
+    for(var i = 0; i <= 100; i += 20) {
+        css = css + "," + "hsla(" + h + "," + s + "%," + l + "%," + i/100 + ")";
+    }
+        css += "),url(bg_transparent_pattern.svg) repeat 0 50%";
+    return css;
+}
+
+function updataInterface() {
+    textH.value = soliderH.value;
+    textS.value = soliderS.value;
+    textL.value = soliderL.value;
+    textA.value = soliderA.value;
+    textHex.value = HSLtoHEX(soliderH.value, soliderS.value, soliderL.value);
+    preview.style.background = "hsla(" + soliderH.value + "," + soliderS.value + "%," + soliderL.value + "%," + soliderA.value/100 + ")";
+    soliderTrackS.style.background = solidBackgroundS(soliderH.value, soliderL.value);
+    soliderTrackL.style.background = solidBackgroundL(soliderH.value, soliderS.value);
+    soliderTrackA.style.background = solidBackgroundA(soliderH.value, soliderS.value, soliderL.value);
+
+    var rgb = HSLtoRGB(soliderH.value, soliderS.value, soliderL.value);
+    color.hex = HSLtoHEX(soliderH.value, soliderS.value, soliderL.value);
+    color.r = rgb[0];
+    color.g = rgb[1];
+    color.b = rgb[2];
+    color.a = Math.round(soliderA.value);
+    color.hsl = [Math.round(soliderH.value), Math.round(soliderS.value), Math.round(soliderL.value)];
+    color.hsb = RGBtoHSB(rgb[0], rgb[1], rgb[2]);
+
+    window.location.hash = color.r + "-" + color.g + "-" + color.b + "-" + color.a;
+
+    // console.log(color);
+    // console.log(window.location.hash)
+}
+
+// Call from Sketch
+function updateInterfaceWithRGBA(r, g, b, a) {
+    var hsl = RGBtoHSL(r, g, b);
+    soliderH.value = hsl[0];
+    soliderS.value = hsl[1];
+    soliderL.value = hsl[2];
+    soliderA.value = a;
+    updataInterface();
+}
+
+function clickAtPoint(x, y) {
+    var element = document.elementFromPoint(x, y);
+    if (element.tagName == "INPUT") {
+        if (element.type == "range") {
+            if (element.id == "color-h") {
+                soliderH.value = (x - soliderH.offsetLeft) / soliderH.clientWidth * 360;
+            }
+            if (element.id == "color-s") {
+                soliderS.value = (x - soliderS.offsetLeft) / soliderS.clientWidth * 100;
+            }
+            if (element.id == "color-l") {
+                soliderL.value = (x - soliderL.offsetLeft) / soliderL.clientWidth * 100;
+            }
+            if (element.id == "color-a") {
+                soliderA.value = (x - soliderA.offsetLeft) / soliderA.clientWidth * 100;
+            }
+            updataInterface();
+        }
+        if (element.type == "number" || element.type == "text") {
+            element.focus();
+        }
+    }
+    if (element.tagName == "BUTTON" || element.tagName == "A") {
+        element.click();
+    }
+}
+
+function checkNumber(target, maxValue) {
+    if (/[^0-9]/.test(target.value)) {
+        target.value = target.value.replace(/[^0-9]/g, "");
+    }
+    if (parseInt(target.value) > maxValue) {
+        target.value = maxValue;
+    }
+}
+
+/**
+ * @param   Number  h       The hue
+ * @param   Number  s       The saturation
+ * @param   Number  l       The lightness
+ * @return  Array           The RGB representation
+ */
+function HSLtoRGB(h, s, l) {
+    h = h / 360;
+    s = s / 100;
+    l = l / 100;
+
+    var r, g, b;
+
+    if (s == 0) {
+        r = g = b = l; // achromatic
+    } else {
+        function hue2rgb(p, q, t){
+            if(t < 0) t += 1;
+            if(t > 1) t -= 1;
+            if(t < 1 / 6) return p + (q - p) * 6 * t;
+            if(t < 1 / 2) return q;
+            if(t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+            return p;
+        }
+
+        var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        var p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1 / 3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1 / 3);
+    }
+
+    return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+}
+
+/**
+ * Converts an RGB color value to HSL. Conversion formula
+ * adapted from http://en.wikipedia.org/wiki/HSL_colorsoliderSpace.
+ * Assumes r, g, and b are contained in the set [0, 255] and
+ * returns h, s, and l in the set [0, 1].
+ *
+ * @param   Number  r       The red color value
+ * @param   Number  g       The green color value
+ * @param   Number  b       The blue color value
+ * @return  Array           The HSL representation
+ */
+function RGBtoHSL(r, g, b) {
+    r /= 255, g /= 255, b /= 255;
+
+    var max = Math.max(r, g, b), min = Math.min(r, g, b);
+    var h, s, l = (max + min) / 2;
+
+    if(max == min){
+        h = s = 0; // achromatic
+    }else{
+        var d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch(max){
+            case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+            case g: h = (b - r) / d + 2; break;
+            case b: h = (r - g) / d + 4; break;
+        }
+        h /= 6;
+    }
+
+    return [Math.round(h * 360), Math.round(s * 100), Math.round(l * 100)];
+}
+
+/**
+ * Converts an RGB color value to HSV. Conversion formula
+ * adapted from http://en.wikipedia.org/wiki/HSV_color_space.
+ * Assumes r, g, and b are contained in the set [0, 255] and
+ * returns h, s, and v in the set [0, 1].
+ *
+ * @param   Number  r       The red color value
+ * @param   Number  g       The green color value
+ * @param   Number  b       The blue color value
+ * @return  Array           The HSV representation
+ */
+function RGBtoHSB(r, g, b) {
+    r /= 255, g /= 255, b /= 255;
+    var rr, gg, bb, h, s,
+        v = Math.max(r, g, b),
+        diff = v - Math.min(r, g, b),
+        diffc = function(c){
+            return (v - c) / 6 / diff + 1 / 2;
+        };
+
+    if (diff == 0) {
+        h = s = 0;
+    } else {
+        s = diff / v;
+        rr = diffc(r);
+        gg = diffc(g);
+        bb = diffc(b);
+
+        if (r === v) {
+            h = bb - gg;
+        }else if (g === v) {
+            h = (1 / 3) + rr - bb;
+        }else if (b === v) {
+            h = (2 / 3) + gg - rr;
+        }
+        if (h < 0) {
+            h += 1;
+        }else if (h > 1) {
+            h -= 1;
+        }
+    }
+
+    return [Math.round(h * 360), Math.round(s * 100), Math.round(v * 100)];
+}
+
+function HSLtoHEX(h, s, l) {
+    var hex_r = HSLtoRGB(h, s, l)[0].toString(16);
+    var hex_g = HSLtoRGB(h, s, l)[1].toString(16);
+    var hex_b = HSLtoRGB(h, s, l)[2].toString(16);
+
+    hex_r = (hex_r.length == 1) ? "0" + hex_r : hex_r;
+    hex_g = (hex_g.length == 1) ? "0" + hex_g : hex_g;
+    hex_b = (hex_b.length == 1) ? "0" + hex_b : hex_b;
+
+    return (hex_r + hex_g + hex_b).toUpperCase();
+}
+
+function HEXtoHSL(hex) {
+    var r = parseInt(hex.substring(0, 2), 16),
+        g = parseInt(hex.substring(2, 4), 16),
+        b = parseInt(hex.substring(4, 6), 16);
+    return RGBtoHSL(r, g, b);
+}
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,548 @@
+@import "MochaJSDelegate.js";
+
+var onRun = function(context) {
+
+    var doc = updateContext().doc;
+    var selection = updateContext().selection;
+    var initColor = updateContext().initColor || MSColor.colorWithRed_green_blue_alpha(1, 0, 0, 1);
+
+    // ColorPicker main window
+    var threadDictionary = NSThread.mainThread().threadDictionary();
+    var identifier = "com.ashung.hung.hsl_color_picker";
+
+    if (threadDictionary[identifier]) {
+        return;
+    }
+
+    // Window size
+    var windowWidth = 240,
+        windowHeight = 180;
+    var colorPicker = NSPanel.alloc().init();
+    colorPicker.setFrame_display(NSMakeRect(0, 0, windowWidth, windowHeight), true);
+
+    colorPicker.setStyleMask(NSTexturedBackgroundWindowMask | NSTitledWindowMask | NSClosableWindowMask);
+    colorPicker.setBackgroundColor(NSColor.whiteColor());
+
+    // Only show close button
+    colorPicker.standardWindowButton(NSWindowMiniaturizeButton).setHidden(true);
+    colorPicker.standardWindowButton(NSWindowZoomButton).setHidden(true);
+
+    // Titlebar
+    colorPicker.setTitle("HSL Color Picker");
+    colorPicker.setTitlebarAppearsTransparent(true);
+
+    colorPicker.becomeKeyWindow();
+    colorPicker.setLevel(NSFloatingWindowLevel);
+
+    threadDictionary[identifier] = colorPicker;
+
+    // Long-running script
+    COScript.currentCOScript().setShouldKeepAround_(true);
+
+    // Add Web View to window
+    var webView = WebView.alloc().initWithFrame(NSMakeRect(0, -24, windowWidth, windowHeight));
+    var windowObject = webView.windowScriptObject();
+    var delegate = new MochaJSDelegate({
+
+        "webView:didFinishLoadForFrame:" : (function(webView, webFrame) {
+
+            var rgba = MSColorToRGBA(initColor);
+            windowObject.evaluateWebScript(
+                'updateInterfaceWithRGBA(' + rgba[0] + ', ' + rgba[1] + ', ' + rgba[2] + ', ' + rgba[3] + ')'
+            );
+
+            ga(context, "Open", "open");
+
+        }),
+
+        "webView:didChangeLocationWithinPageForFrame:" : (function(webView, webFrame) {
+
+            var locationHash = windowObject.evaluateWebScript("window.location.hash");
+
+            // Fixs window blur
+            if (locationHash == "#windowOnFocus") {
+                var point = colorPicker.currentEvent().locationInWindow();
+                var x = point.x;
+                var y = windowHeight - point.y - 24;
+                if (x > 0 && y > 0) {
+                    windowObject.evaluateWebScript("clickAtPoint(" + x + ", " + y + ")");
+                }
+            }
+
+            if (/^#\d+(-\d+){3}/.test(locationHash)) {
+
+                var colorFromWebView = locationHash.replace("#", "").split("-");
+                var MSColorFormWebView = rgbaToMSColor(
+                    colorFromWebView[0],
+                    colorFromWebView[1],
+                    colorFromWebView[2],
+                    colorFromWebView[3]
+                );
+
+                var selection = updateContext().selection;
+                for (var i = 0; i < selection.count(); i++) {
+                    var layer = selection.objectAtIndex(i);
+                    setFillColor(layer, MSColorFormWebView);
+                }
+
+                if (/-addToDocumentColors-\d{13}$/.test(locationHash)) {
+                    addColorToDocumentColors(updateContext().doc, MSColorFormWebView);
+                    ga(context, "Add", "add_color_to_document");
+                }
+
+                if (/-copyColorAsHEX-\d{13}$/.test(locationHash)) {
+                    var hex = windowObject.evaluateWebScript("textHex.value");
+                    copyToClipBoard(
+                        updateContext().doc,
+                        "HEX color code is copied.",
+                        "#" + hex
+                    );
+                    ga(context, "Copy", "copy_color_as_hex");
+                }
+
+                if (/-copyColorAsRGBA-\d{13}$/.test(locationHash)) {
+                    var r = colorFromWebView[0],
+                        g = colorFromWebView[1],
+                        b = colorFromWebView[2],
+                        a = windowObject.evaluateWebScript("textA.value");
+                    copyToClipBoard(
+                        updateContext().doc,
+                        "RGBA color code is copied.",
+                        "rgba(" + r + ", " + g + ", " + b + ", " + (parseInt(a) / 100) + ")"
+                    );
+                    ga(context, "Copy", "copy_color_as_rgba");
+                }
+
+                if (/-copyColorAsHSLA-\d{13}$/.test(locationHash)) {
+                    var h = windowObject.evaluateWebScript("textH.value"),
+                        s = windowObject.evaluateWebScript("textS.value"),
+                        l = windowObject.evaluateWebScript("textL.value"),
+                        a = windowObject.evaluateWebScript("textA.value");
+                    copyToClipBoard(
+                        updateContext().doc,
+                        "HSLA color code is copied.",
+                        "hsla(" + h + ", " + s + "%, " + l + "%, " + (parseInt(a) / 100) + ")"
+                    );
+                    ga(context, "Copy", "copy_color_as_hsla");
+                }
+
+                // Save color
+                setPreferencesInitColor(colorFromWebView[0], colorFromWebView[1], colorFromWebView[2], colorFromWebView[3]);
+
+            }
+
+        })
+    });
+
+    webView.setFrameLoadDelegate_(delegate.getClassInstance());
+    webView.setMainFrameURL_(context.plugin.urlForResourceNamed("hsl.html").path());
+
+    colorPicker.contentView().addSubview(webView);
+    colorPicker.center();
+    colorPicker.makeKeyAndOrderFront(nil);
+
+    // Close Window
+    var closeButton = colorPicker.standardWindowButton(NSWindowCloseButton);
+    closeButton.setCOSJSTargetFunction(function(sender) {
+        COScript.currentCOScript().setShouldKeepAround(false);
+        threadDictionary.removeObjectForKey(identifier);
+        colorPicker.close();
+    });
+    closeButton.setAction("callAction:");
+
+}
+
+var onSelectionChanged = function(context) {
+    var threadDictionary = NSThread.mainThread().threadDictionary();
+    var identifier = "com.ashung.hung.hsl_color_picker";
+    if (threadDictionary[identifier]) {
+        if (updateContext().initColor && updateContext().selection.count() == 1) {
+            var initColor = updateContext().initColor;
+            var rgba = MSColorToRGBA(initColor);
+            var webView = threadDictionary[identifier].contentView().subviews().firstObject();
+            var windowObject = webView.windowScriptObject();
+            windowObject.evaluateWebScript(
+                'updateInterfaceWithRGBA(' + rgba[0] + ', ' + rgba[1] + ', ' + rgba[2] + ', ' + rgba[3] + ')'
+            );
+        }
+    }
+};
+
+var huePlus = function(context) {
+    changeColor(context, "huePlus");
+    ga(context, "Change", "change_color_hue_plus");
+}
+
+var hueMinus = function(context) {
+    changeColor(context, "hueMinus");
+    ga(context, "Change", "change_color_hue_minus");
+}
+
+var moreDark = function(context) {
+    changeColor(context, "dark");
+    ga(context, "Change", "change_color_drak");
+}
+
+var moreLight = function(context) {
+    changeColor(context, "light");
+    ga(context, "Change", "change_color_light");
+}
+
+var moreBright = function(context) {
+    changeColor(context, "bright");
+    ga(context, "Change", "change_color_bright");
+}
+
+var moreGray = function(context) {
+    changeColor(context, "gray");
+    ga(context, "Change", "change_color_gray");
+}
+
+var website = function(context) {
+    openUrlInBrowser("https://github.com/Ashung/HSL_Color_Picker");
+    ga(context, "Help", "website");
+};
+
+var reportIssue = function(context) {
+    openUrlInBrowser("https://github.com/Ashung/HSL_Color_Picker/issues");
+    ga(context, "Help", "issues");
+};
+
+var donate = function() {
+    openUrlInBrowser("http://ashung.github.io/donate.html?ref=hsl_color_picker");
+    ga(context, "Help", "donate");
+};
+
+function openUrlInBrowser(url) {
+    NSWorkspace.sharedWorkspace().openURL(NSURL.URLWithString(url));
+}
+
+/**
+ * @param    context
+ * @param    String     keyword: dark, light, bright, gray, hueMinus, huePlus
+ */
+function changeColor(context, keyword) {
+
+    var sketch = context.api();
+    var doc = context.document;
+    var selection = context.selection;
+
+    if (selection.count() > 0) {
+        for (var i = 0; i < selection.count(); i++) {
+            var layer = selection.objectAtIndex(i);
+            if (getFillColor(layer)) {
+                var msColor = getFillColor(layer);
+                var hslColor = MSColorToHSL(msColor);
+
+                var h = hslColor[0],
+                    s = hslColor[1],
+                    l = hslColor[2];
+
+                if (keyword == "dark") {
+                    l = (l - 5) < 0 ? 0 : (l - 5);
+                }
+
+                if (keyword == "light") {
+                    l = (l + 5) > 100 ? 100 : (l + 5);
+                }
+
+                if (keyword == "bright") {
+                    s = (s + 5) > 100 ? 100 : (s + 5);
+                }
+
+                if (keyword == "gray") {
+                    s = (s - 5) < 0 ? 0 : (s - 5);
+                }
+
+                if (keyword == "hueMinus") {
+                    h = (h - 10) < 0 ? 360 : (h - 10);
+                }
+
+                if (keyword == "huePlus") {
+                    h = (h + 10) > 360 ? 0 : (h + 10);
+                }
+
+                var newMsColor = HSLtoMSColor(h, s, l);
+                setFillColor(layer, newMsColor);
+            }
+            // trigger selectionChanged action
+            // Fix Sketch 45
+            if (sketch.build < 43475) {
+                layer.select_byExpandingSelection(false, true);
+                layer.select_byExpandingSelection(true, true);
+            } else {
+                layer.select_byExtendingSelection(false, true);
+                layer.select_byExtendingSelection(true, true);
+            }
+
+        }
+    } else {
+        doc.showMessage("Please select at least one shape or text layer.");
+    }
+}
+
+/**
+ * @return   Object      {doc, selection, initColor}
+ */
+function updateContext() {
+    var doc = NSDocumentController.sharedDocumentController().currentDocument();
+    var initColor;
+
+    if (MSApplicationMetadata.metadata().appVersion > 41.2) {
+        var selection = doc.selectedLayers().layers();
+    } else {
+        var selection = doc.selectedLayers();
+    }
+
+    if (getPreferencesInitColor()) {
+        initColor = rgbaToMSColor(
+            getPreferencesInitColor()[0],
+            getPreferencesInitColor()[1],
+            getPreferencesInitColor()[2],
+            getPreferencesInitColor()[3]
+        );
+    }
+
+    // Get selected layer color.
+    if (selection.count() > 0) {
+        var layer = selection.firstObject();
+        if (getFillColor(layer)) {
+            initColor = getFillColor(layer);
+        }
+    }
+
+    return {
+        doc : doc,
+        selection : selection,
+        initColor : initColor
+    }
+}
+
+/**
+ * @param    MSColor    mscolor
+ * @return   Array      [r[0-255], g[0-255], b[0-255], a[0-100]]
+ */
+function MSColorToRGBA(mscolor) {
+    var r = Math.round(mscolor.red() * 255),
+        g = Math.round(mscolor.green() * 255),
+        b = Math.round(mscolor.blue() * 255),
+        a = Math.round(mscolor.alpha() * 100);
+    return [r, g, b, a];
+}
+
+/**
+ * @param    Number    r    [0-255]
+ * @param    Number    g    [0-255]
+ * @param    Number    b    [0-255]
+ * @param    Number    a    [0-100]
+ * @return   MSColor
+ */
+function rgbaToMSColor(r, g, b, a) {
+    var color = MSColor.alloc().init();
+    color.setRed(r / 255);
+    color.setGreen(g / 255);
+    color.setBlue(b / 255);
+    color.setAlpha(a / 100);
+    return color;
+}
+
+/**
+ * @param    MSColor
+ * @return   Array [h, s, l]
+ */
+function MSColorToHSL(mscolor) {
+
+    var r = mscolor.red(),
+        g = mscolor.green(),
+        b = mscolor.blue();
+
+    var max = Math.max(r, g, b), min = Math.min(r, g, b);
+    var h, s, l = (max + min) / 2;
+
+    if(max == min){
+        h = s = 0; // achromatic
+    }else{
+        var d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch(max){
+            case r : h = (g - b) / d + (g < b ? 6 : 0); break;
+            case g : h = (b - r) / d + 2; break;
+            case b : h = (r - g) / d + 4; break;
+        }
+        h /= 6;
+    }
+
+    return [Math.round(h * 360), Math.round(s * 100), Math.round(l * 100)];
+}
+
+/**
+ * @param   Number  h       The hue
+ * @param   Number  s       The saturation
+ * @param   Number  l       The lightness
+ * @return  MSColor
+ */
+function HSLtoMSColor(h, s, l) {
+    h = h / 360;
+    s = s / 100;
+    l = l / 100;
+
+    var r, g, b;
+
+    if (s == 0) {
+        r = g = b = l; // achromatic
+    } else {
+        function hue2rgb(p, q, t){
+            if(t < 0) t += 1;
+            if(t > 1) t -= 1;
+            if(t < 1 / 6) return p + (q - p) * 6 * t;
+            if(t < 1 / 2) return q;
+            if(t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+            return p;
+        }
+
+        var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        var p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1 / 3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1 / 3);
+    }
+
+    var color = MSColor.alloc().init();
+    color.setRed(r);
+    color.setGreen(g);
+    color.setBlue(b);
+    color.setAlpha(1);
+    return color;
+
+}
+
+/**
+ * @param    MSLayer    layer
+ */
+function getFillColor(layer) {
+    if (layer.class() == "MSShapeGroup") {
+        var fills = layer.style().enabledFills();
+        if (fills.count() > 0) {
+            if (fills.lastObject().fillType() == 0) {
+                return fills.lastObject().color();
+            } else {
+                return null;
+            }
+        } else {
+            return null;
+        }
+    }
+    if (layer.class() == "MSTextLayer") {
+        if (MSApplicationMetadata.metadata().appVersion >= 48) {
+            return MSColor.alloc().initWithImmutableObject(layer.textColor());
+        } else {
+            return layer.textColor();
+        }
+    }
+}
+
+/**
+ * @param    MSLayer    layer
+ * @param    MSColor    color
+ */
+function setFillColor(layer, color) {
+    if (layer.class() == "MSShapeGroup") {
+        var fills = layer.style().enabledFills();
+        if (fills.count() > 0 && fills.lastObject().fillType() == 0) {
+            fills.lastObject().setColor(color);
+        } else {
+            var fill = layer.style().addStylePartOfType(0);
+            fill.setFillType(0);
+            fill.setColor(color);
+        }
+    }
+    if (layer.class() == "MSTextLayer") {
+        if (MSApplicationMetadata.metadata().appVersion >= 48) {
+            layer.setTextColor(color.immutableModelObject());
+        } else {
+            layer.setTextColor(color);
+        }
+
+    }
+}
+
+function addColorToDocumentColors(document, mscolor) {
+    var documentColors = document.documentData().assets().colors();
+    documentColors.addObject(mscolor);
+    document.showMessage("The color has been added to document colors.");
+}
+
+/**
+ * @param    context
+ * @param    String    message
+ * @param    String    str
+ */
+function copyToClipBoard(document, message, str) {
+    var pboard = NSPasteboard.generalPasteboard();
+    pboard.clearContents();
+    pboard.setString_forType_(str, NSStringPboardType);
+    document.showMessage(message);
+}
+
+function getPreferencesInitColor() {
+    var userDefaults = NSUserDefaults.standardUserDefaults();
+    if (userDefaults.objectForKey("com.ashung.hung.hsl_color_picker")) {
+        return userDefaults.objectForKey("com.ashung.hung.hsl_color_picker");
+    } else {
+        return null;
+    }
+}
+
+function setPreferencesInitColor(red, green, blue, alpha) {
+    var userDefaults = NSUserDefaults.standardUserDefaults();
+    userDefaults.setObject_forKey([red, green, blue, alpha], "com.ashung.hung.hsl_color_picker");
+    userDefaults.synchronize();
+}
+
+function ga(context, eventCategory, eventAction, eventLabel, eventValue) {
+
+    var uuidKey = 'google.analytics.uuid';
+    var uuid = NSUserDefaults.standardUserDefaults().objectForKey(uuidKey);
+    if (!uuid) {
+        uuid = NSUUID.UUID().UUIDString();
+        NSUserDefaults.standardUserDefaults().setObject_forKey(uuid, uuidKey);
+    }
+
+    var trackingID = "UA-99098773-5",
+        appName = encodeURI(context.plugin.name()),
+        appId = context.plugin.identifier(),
+        appVersion = context.plugin.version();
+
+    var url = "https://www.google-analytics.com/collect?v=1";
+    // Tracking ID
+    url += "&tid=" + trackingID;
+    // Source
+    url += "&ds=sketch" + MSApplicationMetadata.metadata().appVersion;
+    // Client ID
+    url += "&cid=" + uuid;
+    // pageview, screenview, event, transaction, item, social, exception, timing
+    url += "&t=event";
+    // App Name
+    url += "&an=" + appName;
+    // App ID
+    url += "&aid=" + appId;
+    // App Version
+    url += "&av=" + appVersion;
+    // Event category
+    url += "&ec=" + encodeURI(eventCategory);
+    // Event action
+    url += "&ea=" + encodeURI(eventAction);
+    // Event label
+    if (eventLabel) {
+        url += "&el=" + encodeURI(eventLabel);
+    }
+    // Event value
+    if (eventValue) {
+        url += "&ev=" + encodeURI(eventValue);
+    }
+
+    var session = NSURLSession.sharedSession();
+    var task = session.dataTaskWithURL(NSURL.URLWithString(NSString.stringWithString(url)));
+    task.resume();
+
+}
